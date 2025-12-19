@@ -1,0 +1,6 @@
+.settings/
+.vscode/
+build/
+cmake/
+Drivers/
+Middlewares/
