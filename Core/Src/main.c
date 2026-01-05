@@ -22,16 +22,17 @@
 #include "adc.h"
 #include "dma.h"
 #include "i2c.h"
-#include "stm32g474xx.h"
 #include "tim.h"
 #include "usart.h"
 #include "usb_device.h"
 #include "gpio.h"
-#include <stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "adc_sync.h"
+#include "max14808.h"
+#include "ssd1306.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,7 +53,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+extern DMA_HandleTypeDef hdma_tim2_up;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -119,7 +120,21 @@ int main(void)
   MX_I2C1_Init();
   MX_I2C3_SMBUS_Init();
   /* USER CODE BEGIN 2 */
-
+  MAX14808_Reset();
+  MAX14808_SetMode(MODE_OCTAL_THREE_LEVEL);
+  MAX14808_SetCurrentLimit(CURRENT_LIMIT_500mA);
+  MAX14808_PulseGenerator_Init(&htim2, &htim5, &hdma_tim2_up);
+  // 初始化 ADC
+  HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+  HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
+  HAL_ADCEx_Calibration_Start(&hadc3, ADC_SINGLE_ENDED);
+  HAL_ADCEx_Calibration_Start(&hadc4, ADC_SINGLE_ENDED);
+  HAL_ADCEx_Calibration_Start(&hadc5, ADC_SINGLE_ENDED);
+  ADC_Sync_Init();
+  
+  HAL_Delay(20); // 单片机启动比 OLED 上电快, 需要延迟等待一下
+  OLED_Init();
+  printf("Welcome to MXDS012-2, system initialized.\n");
   /* USER CODE END 2 */
 
   /* Init scheduler */

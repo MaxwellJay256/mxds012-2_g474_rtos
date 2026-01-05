@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "cmsis_os2.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -41,7 +41,9 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-
+extern osMessageQueueId_t sysControlQueueHandle;
+extern osSemaphoreId_t sysStateSemHandle;
+extern osEventFlagsId_t sysEventGroupHandle;
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/
@@ -137,7 +139,8 @@ void Error_Handler(void);
 #define PULSE_1P_GPIO_Port GPIOE
 
 /* USER CODE BEGIN Private defines */
-
+#define PULSE_GPIO_Port GPIOE
+#define LED_GPIO_Port GPIOA
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

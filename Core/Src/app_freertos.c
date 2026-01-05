@@ -27,7 +27,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "Types/SystemTypes.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,12 +49,81 @@
 /* USER CODE BEGIN Variables */
 
 /* USER CODE END Variables */
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .priority = (osPriority_t) osPriorityNormal,
+/* Definitions for SysMonitorTask */
+osThreadId_t SysMonitorTaskHandle;
+const osThreadAttr_t SysMonitorTask_attributes = {
+  .name = "SysMonitorTask",
+  .priority = (osPriority_t) osPriorityRealtime,
   .stack_size = 128 * 4
+};
+/* Definitions for OLEDTask */
+osThreadId_t OLEDTaskHandle;
+const osThreadAttr_t OLEDTask_attributes = {
+  .name = "OLEDTask",
+  .priority = (osPriority_t) osPriorityBelowNormal7,
+  .stack_size = 128 * 4
+};
+/* Definitions for LEDTask */
+osThreadId_t LEDTaskHandle;
+const osThreadAttr_t LEDTask_attributes = {
+  .name = "LEDTask",
+  .priority = (osPriority_t) osPriorityBelowNormal,
+  .stack_size = 128 * 4
+};
+/* Definitions for USServiceTask */
+osThreadId_t USServiceTaskHandle;
+const osThreadAttr_t USServiceTask_attributes = {
+  .name = "USServiceTask",
+  .priority = (osPriority_t) osPriorityRealtime,
+  .stack_size = 128 * 4
+};
+/* Definitions for KeyTask */
+osThreadId_t KeyTaskHandle;
+const osThreadAttr_t KeyTask_attributes = {
+  .name = "KeyTask",
+  .priority = (osPriority_t) osPriorityAboveNormal,
+  .stack_size = 128 * 4
+};
+/* Definitions for HVMonitorTask */
+osThreadId_t HVMonitorTaskHandle;
+const osThreadAttr_t HVMonitorTask_attributes = {
+  .name = "HVMonitorTask",
+  .priority = (osPriority_t) osPriorityNormal1,
+  .stack_size = 128 * 4
+};
+/* Definitions for INA231Task */
+osThreadId_t INA231TaskHandle;
+const osThreadAttr_t INA231Task_attributes = {
+  .name = "INA231Task",
+  .priority = (osPriority_t) osPriorityBelowNormal,
+  .stack_size = 128 * 4
+};
+/* Definitions for ADCTask */
+osThreadId_t ADCTaskHandle;
+const osThreadAttr_t ADCTask_attributes = {
+  .name = "ADCTask",
+  .priority = (osPriority_t) osPriorityRealtime,
+  .stack_size = 128 * 4
+};
+/* Definitions for sysControlQueue */
+osMessageQueueId_t sysControlQueueHandle;
+const osMessageQueueAttr_t sysControlQueue_attributes = {
+  .name = "sysControlQueue"
+};
+/* Definitions for OLEDQueue */
+osMessageQueueId_t OLEDQueueHandle;
+const osMessageQueueAttr_t OLEDQueue_attributes = {
+  .name = "OLEDQueue"
+};
+/* Definitions for sysStateSem */
+osSemaphoreId_t sysStateSemHandle;
+const osSemaphoreAttr_t sysStateSem_attributes = {
+  .name = "sysStateSem"
+};
+/* Definitions for sysEventGroup */
+osEventFlagsId_t sysEventGroupHandle;
+const osEventFlagsAttr_t sysEventGroup_attributes = {
+  .name = "sysEventGroup"
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,7 +131,14 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* USER CODE END FunctionPrototypes */
 
-void StartDefaultTask(void *argument);
+void StartSysMonitorTask(void *argument);
+extern void StartOLEDTask(void *argument);
+extern void StartLEDTask(void *argument);
+extern void StartUltrasoundServiceTask(void *argument);
+extern void StartKeyTask(void *argument);
+extern void StartHVMonitorTask(void *argument);
+void StartINA231Task(void *argument);
+extern void StartADCTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -80,6 +156,10 @@ void MX_FREERTOS_Init(void) {
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
+  /* Create the semaphores(s) */
+  /* creation of sysStateSem */
+  sysStateSemHandle = osSemaphoreNew(1, 1, &sysStateSem_attributes);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -88,17 +168,49 @@ void MX_FREERTOS_Init(void) {
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
+  /* Create the queue(s) */
+  /* creation of sysControlQueue */
+  sysControlQueueHandle = osMessageQueueNew (8, sizeof(SysControlMessage*), &sysControlQueue_attributes);
+
+  /* creation of OLEDQueue */
+  OLEDQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &OLEDQueue_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  /* creation of SysMonitorTask */
+  SysMonitorTaskHandle = osThreadNew(StartSysMonitorTask, NULL, &SysMonitorTask_attributes);
+
+  /* creation of OLEDTask */
+  OLEDTaskHandle = osThreadNew(StartOLEDTask, NULL, &OLEDTask_attributes);
+
+  /* creation of LEDTask */
+  LEDTaskHandle = osThreadNew(StartLEDTask, NULL, &LEDTask_attributes);
+
+  /* creation of USServiceTask */
+  USServiceTaskHandle = osThreadNew(StartUltrasoundServiceTask, NULL, &USServiceTask_attributes);
+
+  /* creation of KeyTask */
+  KeyTaskHandle = osThreadNew(StartKeyTask, NULL, &KeyTask_attributes);
+
+  /* creation of HVMonitorTask */
+  HVMonitorTaskHandle = osThreadNew(StartHVMonitorTask, NULL, &HVMonitorTask_attributes);
+
+  /* creation of INA231Task */
+  INA231TaskHandle = osThreadNew(StartINA231Task, NULL, &INA231Task_attributes);
+
+  /* creation of ADCTask */
+  ADCTaskHandle = osThreadNew(StartADCTask, NULL, &ADCTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
+
+  /* Create the event(s) */
+  /* creation of sysEventGroup */
+  sysEventGroupHandle = osEventFlagsNew(&sysEventGroup_attributes);
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
@@ -106,25 +218,42 @@ void MX_FREERTOS_Init(void) {
 
 }
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_StartSysMonitorTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
+  * @brief  Function implementing the sysMonitorTask thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+/* USER CODE END Header_StartSysMonitorTask */
+__weak void StartSysMonitorTask(void *argument)
 {
   /* init code for USB_Device */
   MX_USB_Device_Init();
-  /* USER CODE BEGIN StartDefaultTask */
+  /* USER CODE BEGIN StartSysMonitorTask */
   /* Infinite loop */
   for(;;)
   {
-    
-    osDelay(1000);
+    osDelay(1);
   }
-  /* USER CODE END StartDefaultTask */
+  /* USER CODE END StartSysMonitorTask */
+}
+
+/* USER CODE BEGIN Header_StartINA231Task */
+/**
+* @brief Function implementing the INA231Task thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartINA231Task */
+__weak void StartINA231Task(void *argument)
+{
+  /* USER CODE BEGIN StartINA231Task */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartINA231Task */
 }
 
 /* Private application code --------------------------------------------------*/

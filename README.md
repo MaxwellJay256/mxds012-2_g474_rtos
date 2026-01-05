@@ -1,1 +1,17 @@
 # MXDS012-2 G474 RTOS
+
+## 外设
+
+|外设|目标|功能|
+|-|-|-|
+|USART1|STLINK VCP|串口调试输出|
+|I2C1|OLED 屏幕|显示系统状态|
+|I2C3|INA231|电源监测|
+|ADC1 IN1|MAX14808 LVOUT1||
+|ADC2 IN3|MAX14808 LVOUT2|
+|ADC3 IN1|MAX14808 LVOUT3|
+|ADC4 IN5|MAX14808 LVOUT4|
+|ADC5 IN1|REF35 1.6V 电压基准|
+|USB FS|上位机|与上位机通信|
+
+## 通信协议

@@ -45,11 +45,30 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
+    Core/BSP/adc_sync.c
+    Core/BSP/font.c
+    Core/BSP/ina231.c
+    Core/BSP/key.c
+    Core/BSP/led.c
+    Core/BSP/lm51551.c
+    Core/BSP/max14808.c
+    Core/BSP/ssd1306.c
+    Core/BSP/usb_tx.c
+
+    Core/App/Tasks/ADCTask.c
+    Core/App/Tasks/HVMonitorTask.c
+    Core/App/Tasks/KeyTask.c
+    Core/App/Tasks/LEDTask.c
+    Core/App/Tasks/OLEDTask.c
+    Core/App/Tasks/SysMonitorTask.c
+    Core/App/Tasks/USServiceTask.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+    Core/App
+    Core/BSP
 )
 
 # Add project symbols (macros)

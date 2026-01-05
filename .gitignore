@@ -4,3 +4,6 @@ build/
 cmake/
 Drivers/
 Middlewares/
+
+.clangd
+CMakePresets.json
