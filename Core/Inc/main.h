@@ -41,6 +41,7 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
+extern DMA_HandleTypeDef hdma_tim2_up;
 extern osMessageQueueId_t sysControlQueueHandle;
 extern osSemaphoreId_t sysStateSemHandle;
 extern osEventFlagsId_t sysEventGroupHandle;
