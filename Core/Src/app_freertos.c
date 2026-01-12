@@ -53,14 +53,14 @@
 osThreadId_t SysMonitorTaskHandle;
 const osThreadAttr_t SysMonitorTask_attributes = {
   .name = "SysMonitorTask",
-  .priority = (osPriority_t) osPriorityRealtime,
+  .priority = (osPriority_t) osPriorityNormal7,
   .stack_size = 128 * 4
 };
 /* Definitions for OLEDTask */
 osThreadId_t OLEDTaskHandle;
 const osThreadAttr_t OLEDTask_attributes = {
   .name = "OLEDTask",
-  .priority = (osPriority_t) osPriorityBelowNormal7,
+  .priority = (osPriority_t) osPriorityNormal3,
   .stack_size = 128 * 4
 };
 /* Definitions for LEDTask */
@@ -88,14 +88,14 @@ const osThreadAttr_t KeyTask_attributes = {
 osThreadId_t HVMonitorTaskHandle;
 const osThreadAttr_t HVMonitorTask_attributes = {
   .name = "HVMonitorTask",
-  .priority = (osPriority_t) osPriorityNormal1,
+  .priority = (osPriority_t) osPriorityAboveNormal1,
   .stack_size = 128 * 4
 };
 /* Definitions for INA231Task */
 osThreadId_t INA231TaskHandle;
 const osThreadAttr_t INA231Task_attributes = {
   .name = "INA231Task",
-  .priority = (osPriority_t) osPriorityBelowNormal,
+  .priority = (osPriority_t) osPriorityLow7,
   .stack_size = 128 * 4
 };
 /* Definitions for ADCTask */
@@ -103,6 +103,20 @@ osThreadId_t ADCTaskHandle;
 const osThreadAttr_t ADCTask_attributes = {
   .name = "ADCTask",
   .priority = (osPriority_t) osPriorityRealtime,
+  .stack_size = 128 * 4
+};
+/* Definitions for USBRXTask */
+osThreadId_t USBRXTaskHandle;
+const osThreadAttr_t USBRXTask_attributes = {
+  .name = "USBRXTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 128 * 4
+};
+/* Definitions for USBTXTask */
+osThreadId_t USBTXTaskHandle;
+const osThreadAttr_t USBTXTask_attributes = {
+  .name = "USBTXTask",
+  .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 128 * 4
 };
 /* Definitions for sysControlQueue */
@@ -115,10 +129,20 @@ osMessageQueueId_t OLEDQueueHandle;
 const osMessageQueueAttr_t OLEDQueue_attributes = {
   .name = "OLEDQueue"
 };
-/* Definitions for sysStateSem */
-osSemaphoreId_t sysStateSemHandle;
-const osSemaphoreAttr_t sysStateSem_attributes = {
-  .name = "sysStateSem"
+/* Definitions for USBRXQueue */
+osMessageQueueId_t USBRXQueueHandle;
+const osMessageQueueAttr_t USBRXQueue_attributes = {
+  .name = "USBRXQueue"
+};
+/* Definitions for ADCQueue */
+osMessageQueueId_t ADCQueueHandle;
+const osMessageQueueAttr_t ADCQueue_attributes = {
+  .name = "ADCQueue"
+};
+/* Definitions for USBTXCpltSem */
+osSemaphoreId_t USBTXCpltSemHandle;
+const osSemaphoreAttr_t USBTXCpltSem_attributes = {
+  .name = "USBTXCpltSem"
 };
 /* Definitions for sysEventGroup */
 osEventFlagsId_t sysEventGroupHandle;
@@ -139,6 +163,8 @@ extern void StartKeyTask(void *argument);
 extern void StartHVMonitorTask(void *argument);
 void StartINA231Task(void *argument);
 extern void StartADCTask(void *argument);
+void StartUSBRXTask(void *argument);
+void StartUSBTXTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -157,8 +183,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_MUTEX */
 
   /* Create the semaphores(s) */
-  /* creation of sysStateSem */
-  sysStateSemHandle = osSemaphoreNew(1, 1, &sysStateSem_attributes);
+  /* creation of USBTXCpltSem */
+  USBTXCpltSemHandle = osSemaphoreNew(1, 0, &USBTXCpltSem_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -174,6 +200,12 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of OLEDQueue */
   OLEDQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &OLEDQueue_attributes);
+
+  /* creation of USBRXQueue */
+  USBRXQueueHandle = osMessageQueueNew (16, sizeof(uint8_t), &USBRXQueue_attributes);
+
+  /* creation of ADCQueue */
+  ADCQueueHandle = osMessageQueueNew (32, sizeof(void*), &ADCQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -203,6 +235,12 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of ADCTask */
   ADCTaskHandle = osThreadNew(StartADCTask, NULL, &ADCTask_attributes);
+
+  /* creation of USBRXTask */
+  // USBRXTaskHandle = osThreadNew(StartUSBRXTask, NULL, &USBRXTask_attributes);
+
+  /* creation of USBTXTask */
+  // USBTXTaskHandle = osThreadNew(StartUSBTXTask, NULL, &USBTXTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -254,6 +292,42 @@ __weak void StartINA231Task(void *argument)
     osDelay(1);
   }
   /* USER CODE END StartINA231Task */
+}
+
+/* USER CODE BEGIN Header_StartUSBRXTask */
+/**
+* @brief Function implementing the USBRXTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartUSBRXTask */
+__weak void StartUSBRXTask(void *argument)
+{
+  /* USER CODE BEGIN StartUSBRXTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartUSBRXTask */
+}
+
+/* USER CODE BEGIN Header_StartUSBTXTask */
+/**
+* @brief Function implementing the USBTXTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartUSBTXTask */
+__weak void StartUSBTXTask(void *argument)
+{
+  /* USER CODE BEGIN StartUSBTXTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartUSBTXTask */
 }
 
 /* Private application code --------------------------------------------------*/

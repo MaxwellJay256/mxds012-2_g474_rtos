@@ -61,6 +61,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/App/Tasks/LEDTask.c
     Core/App/Tasks/OLEDTask.c
     Core/App/Tasks/SysMonitorTask.c
+    Core/App/Tasks/USBRXTask.c
+    Core/App/Tasks/USBTXTask.c
     Core/App/Tasks/USServiceTask.c
 )
 

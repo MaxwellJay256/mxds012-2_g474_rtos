@@ -27,6 +27,7 @@ void StartUltrasoundServiceTask(void *argument) {
 
         taskEXIT_CRITICAL();
       } else {
+        // SystemState 为 Stop 状态时，关闭所有通道，否则通道会持续处于 RECEIVE 状态
         // MAX14808_PulseGenerator_Stop();
         for (uint8_t i = 0; i < 8; i++) {
             MAX14808_SetChannel(i, OFF);

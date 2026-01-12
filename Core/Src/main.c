@@ -111,12 +111,12 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM5_Init();
   MX_USART1_UART_Init();
+  MX_TIM3_Init();
   MX_ADC1_Init();
   MX_ADC2_Init();
-  MX_ADC5_Init();
-  MX_TIM3_Init();
   MX_ADC3_Init();
   MX_ADC4_Init();
+  MX_ADC5_Init();
   MX_I2C1_Init();
   MX_I2C3_SMBUS_Init();
   /* USER CODE BEGIN 2 */

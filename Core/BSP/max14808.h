@@ -59,5 +59,6 @@ void MAX14808_PulseGenerator_SetPattern(uint16_t *pattern, uint16_t length);
 void MAX14808_PulseGenerator_IRQHandler(TIM_HandleTypeDef *htim);
 
 void MAX14808_PulseGenerator_TriggerFromTask(void);
+void MAX14808_PulseGenerator_DMATransferError(DMA_HandleTypeDef *hdma);
 
 #endif // _MAX14808_H_

@@ -132,8 +132,8 @@ void MAX14808_PulseGenerator_Init(TIM_HandleTypeDef *htim_pulse, TIM_HandleTypeD
   dma_pulse = hdma_pulse;
 
   if (dma_pulse) {
-    dma_pulse->XferCpltCallback = PulseDMATransferComplete;
-    dma_pulse->XferErrorCallback = PulseDMATransferError;
+    dma_pulse->XferCpltCallback = MAX14808_PulseGenerator_DMATransferComplete;
+    dma_pulse->XferErrorCallback = MAX14808_PulseGenerator_DMATransferError;
   }
 }
 
@@ -230,4 +230,10 @@ void MAX14808_PulseGenerator_IRQHandler(TIM_HandleTypeDef *htim)
     // the same. The internal helper checks for NULL handles.
     MAX14808_PulseGenerator_StartSequence();
   }
+}
+
+void MAX14808_PulseGenerator_DMATransferError(DMA_HandleTypeDef *hdma) {
+  // 可选：错误指示
+  // HAL_GPIO_WritePin(LED_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
+  printf("Pulse DMA Transfer Error!\n");
 }

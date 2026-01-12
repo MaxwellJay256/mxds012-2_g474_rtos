@@ -40,6 +40,7 @@ void StartHVMonitorTask(void *argument) {
       }
     }
     //*/
+    
     // 处理高压异常情况，加入消抖避免误报
     const uint8_t hvFault = !is_HV_PGood();
     const uint8_t hvEnabled =

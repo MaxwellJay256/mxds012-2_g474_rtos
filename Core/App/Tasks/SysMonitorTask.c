@@ -1,39 +1,39 @@
-#include "cmsis_os2.h"
 #include "FreeRTOS.h"
-#include "main.h"
-#include "lm51551.h"
-#include "led.h"
 #include "Types/SystemTypes.h"
+#include "cmsis_os2.h"
+#include "led.h"
+#include "lm51551.h"
+#include "main.h"
 #include <stdio.h>
+
 
 /**
  * @brief 系统管理任务，处理系统状态切换
- * 
- * @param argument 
+ *
+ * @param argument
  */
-void StartSysMonitorTask(void * argument)
-{
-    SystemState currentState = SystemState_Stop;
-    for (;;) {
-        SysControlMessage* message;
-        osMessageQueueGet(sysControlQueueHandle, &message, 0, osWaitForever);
+void StartSysMonitorTask(void *argument) {
+  SystemState currentState = SystemState_Stop;
+  for (;;) {
+    SysControlMessage *message;
+    osMessageQueueGet(sysControlQueueHandle, &message, 0, osWaitForever);
 
-        if (message->state == currentState) {
-            continue;
-        }
-
-        currentState = message->state;
-        if (currentState == SystemState_Running) {
-            HV_Enable();
-            osEventFlagsSet(sysEventGroupHandle, SYS_EVENT_RUNNING_BIT);
-            printf("[SysMonitorTask] System Running. High Voltage Enabled.\n");
-            // LED_SetColor(GREEN);
-        } else {
-            osEventFlagsClear(sysEventGroupHandle, SYS_EVENT_RUNNING_BIT);
-            HV_Disable();
-            printf("[SysMonitorTask] System Stopped. High Voltage Disabled.\n");
-            // LED_SetColor(RED);
-        }
-        vPortFree(message);
+    if (message->state == currentState) {
+      continue;
     }
+
+    currentState = message->state;
+    if (currentState == SystemState_Running) {
+      HV_Enable();
+      osEventFlagsSet(sysEventGroupHandle, SYS_EVENT_RUNNING_BIT);
+      printf("[SysMonitorTask] System Running. High Voltage Enabled.\n");
+      // LED_SetColor(GREEN);
+    } else {
+      osEventFlagsClear(sysEventGroupHandle, SYS_EVENT_RUNNING_BIT);
+      HV_Disable();
+      printf("[SysMonitorTask] System Stopped. High Voltage Disabled.\n");
+      // LED_SetColor(RED);
+    }
+    vPortFree(message);
+  }
 }

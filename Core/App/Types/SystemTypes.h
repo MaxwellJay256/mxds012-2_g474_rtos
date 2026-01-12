@@ -1,13 +1,13 @@
 #ifndef SYSTEM_TYPES_H
 #define SYSTEM_TYPES_H
 
-typedef enum SystemState_t{
-    SystemState_Stop = 0,
-    SystemState_Running = 1,
+typedef enum SystemState_t {
+  SystemState_Stop = 0,
+  SystemState_Running = 1,
 } SystemState;
 
 typedef struct SysControlMessage_t {
-    SystemState state;
+  SystemState state;
 } SysControlMessage;
 
 // Event group bits

@@ -43,7 +43,9 @@ extern "C" {
 /* USER CODE BEGIN EC */
 extern DMA_HandleTypeDef hdma_tim2_up;
 extern osMessageQueueId_t sysControlQueueHandle;
-extern osSemaphoreId_t sysStateSemHandle;
+extern osMessageQueueId_t USBRXQueueHandle;
+extern osMessageQueueId_t ADCQueueHandle;
+extern osSemaphoreId_t USBTXCpltSemHandle;
 extern osEventFlagsId_t sysEventGroupHandle;
 /* USER CODE END EC */
 
