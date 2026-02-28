@@ -265,3 +265,4 @@ void HAL_SMBUS_MspDeInit(SMBUS_HandleTypeDef* smbusHandle)
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */
+

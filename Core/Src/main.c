@@ -126,7 +126,6 @@ int main(void)
   HAL_ADCEx_Calibration_Start(&hadc3, ADC_SINGLE_ENDED);
   HAL_ADCEx_Calibration_Start(&hadc4, ADC_SINGLE_ENDED);
   HAL_ADCEx_Calibration_Start(&hadc5, ADC_SINGLE_ENDED);
-  ADC_Sync_Init();
   
   HAL_Delay(20); // 单片机启动比 OLED 上电快, 需要延迟等待一下
   // OLED_Init();
