@@ -5,7 +5,6 @@
 #include "event_groups.h"
 #include "main.h"
 
-
 /**
  * @brief ADC 任务：等待脉冲发送完成信号，启动 ADC 采样并发送结果
  *
