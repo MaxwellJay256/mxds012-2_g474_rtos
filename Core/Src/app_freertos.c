@@ -116,7 +116,7 @@ const osThreadAttr_t USBRXTask_attributes = {
 osThreadId_t USBTXTaskHandle;
 const osThreadAttr_t USBTXTask_attributes = {
   .name = "USBTXTask",
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal6,
   .stack_size = 128 * 4
 };
 /* Definitions for sysControlQueue */
@@ -237,10 +237,10 @@ void MX_FREERTOS_Init(void) {
   ADCTaskHandle = osThreadNew(StartADCTask, NULL, &ADCTask_attributes);
 
   /* creation of USBRXTask */
-  // USBRXTaskHandle = osThreadNew(StartUSBRXTask, NULL, &USBRXTask_attributes);
+  USBRXTaskHandle = osThreadNew(StartUSBRXTask, NULL, &USBRXTask_attributes);
 
   /* creation of USBTXTask */
-  // USBTXTaskHandle = osThreadNew(StartUSBTXTask, NULL, &USBTXTask_attributes);
+  USBTXTaskHandle = osThreadNew(StartUSBTXTask, NULL, &USBTXTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */

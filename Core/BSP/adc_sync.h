@@ -11,7 +11,7 @@
 #include <stdint.h>
 
 
-#define ADC_RESULT_BUFFER_LENGTH 30
+#define ADC_RESULT_BUFFER_LENGTH 200 // 每个 ADC 通道单轮连续采样点数
 
 // 初始化：预置 ADC 多模 + DMA，准备好等待 TRGO 触发
 void ADC_Sync_Init(void);

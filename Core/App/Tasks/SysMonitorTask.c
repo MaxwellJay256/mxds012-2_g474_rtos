@@ -3,6 +3,7 @@
 #include "cmsis_os2.h"
 #include "led.h"
 #include "lm51551.h"
+#include "usb_device.h"
 #include "main.h"
 #include <stdio.h>
 
@@ -13,6 +14,9 @@
  * @param argument
  */
 void StartSysMonitorTask(void *argument) {
+  /* init code for USB_Device */
+  MX_USB_Device_Init();
+
   SystemState currentState = SystemState_Stop;
   for (;;) {
     SysControlMessage *message;

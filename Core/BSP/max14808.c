@@ -35,6 +35,7 @@ static uint16_t default_pulse_wave[] = {
   // PULSE_OFF,
 };
 
+/*/
 static uint16_t pulse_wave_1[] = {
   // PULSE_OFF, PULSE_OFF, PULSE_OFF, PULSE_OFF, PULSE_OFF,
   // PULSE_OFF, PULSE_OFF, PULSE_OFF, PULSE_OFF, PULSE_OFF,
@@ -52,6 +53,7 @@ static uint16_t pulse_wave_1[] = {
   // PULSE_RECEIVE, PULSE_RECEIVE, PULSE_RECEIVE, PULSE_RECEIVE, PULSE_RECEIVE,
   PULSE_OFF,
 };
+//*/
 
 static uint16_t *current_pulse_pattern = default_pulse_wave;
 static uint16_t current_pattern_length = sizeof(default_pulse_wave) / sizeof(default_pulse_wave[0]);
@@ -199,10 +201,12 @@ static void MAX14808_PulseGenerator_StartSequence(void)
   HAL_DMA_Abort(dma_pulse);
 
   // Start new DMA transfer to GPIO ODR and enable timer DMA requests
-  HAL_DMA_Start(dma_pulse,
-                 (uint32_t)current_pulse_pattern,
-                 (uint32_t)&PULSE_GPIO_Port->ODR,
-                 current_pattern_length);
+  if (HAL_DMA_Start_IT(dma_pulse,
+                       (uint32_t)current_pulse_pattern,
+                       (uint32_t)&PULSE_GPIO_Port->ODR,
+                       current_pattern_length) != HAL_OK) {
+    return;
+  }
   __HAL_TIM_ENABLE_DMA(tim_pulse, TIM_DMA_UPDATE);
   HAL_TIM_Base_Start(tim_pulse);
 
@@ -235,5 +239,5 @@ void MAX14808_PulseGenerator_IRQHandler(TIM_HandleTypeDef *htim)
 void MAX14808_PulseGenerator_DMATransferError(DMA_HandleTypeDef *hdma) {
   // 可选：错误指示
   // HAL_GPIO_WritePin(LED_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
-  printf("Pulse DMA Transfer Error!\n");
+  printf("[max14808] Pulse DMA Transfer Error!\n");
 }

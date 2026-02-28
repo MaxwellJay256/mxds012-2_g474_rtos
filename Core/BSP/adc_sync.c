@@ -96,6 +96,7 @@ void ADC_Sync_Init(void) {
   HAL_ADC_Start_DMA(&hadc5, &adc5_result, 1);
   // 完成后，三路均处于“就绪等待触发”状态
   ADC_Timestamp_Init();
+  printf("[adc_sync] ADC Sync initialized.\n");
 }
 
 // 启动采样定时器，周期性产生 TRGO（CubeMX 已配置 TIMx TRGO=Update）
@@ -145,7 +146,7 @@ void ADC_Sync_TransmitResultsIfFull(void) {
     // 清标志，处理数据
     adc_data_ready = 0;
 
-    // 拆包 packed buffers -> adc_result[0..3]
+    // 拆包 packed buffers -> adc_result[0..3], 并减去基准电压 adc5_result
     for (uint16_t i = 0; i < ADC_RESULT_BUFFER_LENGTH; ++i) {
       adc_result[0][i] = (int16_t)(adc12_packed[i] & 0xFFFF) - (int16_t)(adc5_result & 0xFFFF);
       adc_result[1][i] = (int16_t)((adc12_packed[i] >> 16) & 0xFFFF) - (int16_t)(adc5_result & 0xFFFF);
@@ -159,11 +160,10 @@ void ADC_Sync_TransmitResultsIfFull(void) {
     // USB_ADC_Results_Transmit5(chans, ADC_RESULT_BUFFER_LENGTH);
     USB_ADC_Transmit_Bin(chans, ADC_RESULT_BUFFER_LENGTH);
 
-
     // 重新启动 DMA 以准备下一轮采样
     HAL_ADCEx_MultiModeStart_DMA(&hadc1, adc12_packed, ADC_RESULT_BUFFER_LENGTH);
     HAL_ADCEx_MultiModeStart_DMA(&hadc3, adc34_packed, ADC_RESULT_BUFFER_LENGTH);
-    // HAL_ADC_Start_DMA(&hadc5, (uint32_t *)adc_result[4], ADC_RESULT_BUFFER_LENGTH);
+    HAL_ADC_Start_DMA(&hadc5, &adc5_result, 1);
   }
 }
 
@@ -194,9 +194,9 @@ void MAX14808_PulseGenerator_DMATransferComplete(DMA_HandleTypeDef *hdma) {
 
 // 发送缓冲（单行最大: 5 * (sign + up to 6 digits) + 4 spaces + ";\n" ≈ 5*7 + 6
 // = 41 字节） 为安全与兼容 CDC 64 字节包，使用 128 字节行缓冲
-#define USB_TX_LINE_BUF_SIZE 512
+#define USB_TX_LINE_BUF_SIZE 128
 // 批量发送的帧缓冲尺寸（建议 >= batch_lines * 每行均值），可按需调整
-#define USB_TX_FRAME_BUF_SIZE 8192
+#define USB_TX_FRAME_BUF_SIZE 512
 
 // 单次总缓冲，为避免一次性内存过大，这里逐行发送
 static uint8_t line_buf[USB_TX_LINE_BUF_SIZE];
@@ -282,8 +282,9 @@ uint8_t USB_ADC_Results_Transmit5(const int16_t *const results[5],
   return 0;
 }
 
+
 /**
- * @brief 以二进制格式打包 ADC 数据，发送至队列
+ * @brief 以二进制格式（大端序 / 网络字节序）打包 ADC 数据，发送至队列
  * 
  * @param results 
  * @param length 
@@ -291,17 +292,21 @@ uint8_t USB_ADC_Results_Transmit5(const int16_t *const results[5],
  */
 uint8_t USB_ADC_Transmit_Bin(const int16_t *const results[4], uint16_t length)
 {
-  uint16_t payload_len = 4 * length * sizeof(int16_t);
-  uint16_t total_len = 2 + 2 + 1 + payload_len + 2 + 2; // 帧头 + 长度 + 类型 + 数据 + 校验 + 帧尾
+  const uint16_t payload_len = 4 * length * sizeof(int16_t);
+  // printf("[adc_sync] payload len: %u\n", payload_len);
+  const uint16_t total_len = 2 + 2 + 1 + payload_len + 2 + 2; // 帧头 + 长度 + 类型 + 数据 + 校验 + 帧尾
+  // printf("[adc_sync] total len: %u\n", total_len);
 
   ADCUsbPacket *packet = (ADCUsbPacket *)pvPortMalloc(sizeof(ADCUsbPacket));
+  packet->len = total_len;
   packet->buf = (uint8_t *)pvPortMalloc(total_len);
   uint8_t *buf_ptr = packet->buf;
 
   // 1. 填充帧头
   *buf_ptr++ = USB_PKT_HEADER_HIGH; *buf_ptr++ = USB_PKT_HEADER_LOW;
   // 2. 长度和类型
-  *((uint16_t *)buf_ptr) = payload_len; buf_ptr += 2;
+  *buf_ptr++ = (uint8_t)((payload_len >> 8) & 0xFF);  // 高字节
+  *buf_ptr++ = (uint8_t)(payload_len & 0xFF);         // 低字节
   *buf_ptr++ = USB_PKT_TYPE_ADC;
   // 3. 填充 4 通道 ADC 数据
   for (uint8_t ch = 0; ch < 4; ++ch) {
@@ -314,7 +319,8 @@ uint8_t USB_ADC_Transmit_Bin(const int16_t *const results[4], uint16_t length)
   for (uint16_t i = 2; i < 4 + payload_len; ++i) {
     checksum ^= packet->buf[i];
   }
-  *((uint16_t *)buf_ptr) = checksum; buf_ptr += 2;
+  *buf_ptr++ = (uint8_t)((checksum >> 8) & 0xFF);     // 高字节
+  *buf_ptr++ = (uint8_t)(checksum & 0xFF);            // 低字节
   //*/
   // 5. 填充帧尾
   *buf_ptr++ = USB_PKT_TAIL_HIGH; *buf_ptr++ = USB_PKT_TAIL_LOW;
@@ -325,8 +331,8 @@ uint8_t USB_ADC_Transmit_Bin(const int16_t *const results[4], uint16_t length)
   if (qres != osOK) {
     vPortFree(packet->buf);
     vPortFree(packet);
-    return 0;
-  } else {
     return 1;
+  } else {
+    return 0;
   }
 }
