@@ -1,8 +1,6 @@
-#include "cmsis_os2.h"
-#include "usb_tx.h"
-#include "main.h"
+#include "FreeRTOS.h"
+#include "usb_com.h"
 #include <stdio.h>
-#include <string.h>
 
 extern USBD_HandleTypeDef hUsbDeviceFS;
 

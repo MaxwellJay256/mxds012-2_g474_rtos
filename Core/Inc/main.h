@@ -44,7 +44,8 @@ extern "C" {
 extern DMA_HandleTypeDef hdma_tim2_up;
 extern osMessageQueueId_t sysControlQueueHandle;
 extern osMessageQueueId_t USBRXQueueHandle;
-extern osMessageQueueId_t ADCQueueHandle;
+extern osMessageQueueId_t UsbTxQueueHandle;
+extern osMutexId_t usbTxMutexHandle;
 extern osSemaphoreId_t USBTXCpltSemHandle;
 extern osEventFlagsId_t sysEventGroupHandle;
 /* USER CODE END EC */

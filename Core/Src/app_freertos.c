@@ -134,10 +134,15 @@ osMessageQueueId_t USBRXQueueHandle;
 const osMessageQueueAttr_t USBRXQueue_attributes = {
   .name = "USBRXQueue"
 };
-/* Definitions for ADCQueue */
-osMessageQueueId_t ADCQueueHandle;
-const osMessageQueueAttr_t ADCQueue_attributes = {
-  .name = "ADCQueue"
+/* Definitions for UsbTxQueue */
+osMessageQueueId_t UsbTxQueueHandle;
+const osMessageQueueAttr_t UsbTxQueue_attributes = {
+  .name = "UsbTxQueue"
+};
+/* Definitions for usbTxMutex */
+osMutexId_t usbTxMutexHandle;
+const osMutexAttr_t usbTxMutex_attributes = {
+  .name = "usbTxMutex"
 };
 /* Definitions for USBTXCpltSem */
 osSemaphoreId_t USBTXCpltSemHandle;
@@ -177,6 +182,9 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
+  /* Create the mutex(es) */
+  /* creation of usbTxMutex */
+  usbTxMutexHandle = osMutexNew(&usbTxMutex_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -204,8 +212,8 @@ void MX_FREERTOS_Init(void) {
   /* creation of USBRXQueue */
   USBRXQueueHandle = osMessageQueueNew (16, sizeof(uint8_t), &USBRXQueue_attributes);
 
-  /* creation of ADCQueue */
-  ADCQueueHandle = osMessageQueueNew (32, sizeof(void*), &ADCQueue_attributes);
+  /* creation of UsbTxQueue */
+  UsbTxQueueHandle = osMessageQueueNew (16, sizeof(void*), &UsbTxQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -246,7 +254,6 @@ void MX_FREERTOS_Init(void) {
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
 
-  /* Create the event(s) */
   /* creation of sysEventGroup */
   sysEventGroupHandle = osEventFlagsNew(&sysEventGroup_attributes);
 

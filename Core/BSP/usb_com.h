@@ -1,11 +1,11 @@
 #ifndef USB_TX_H
 #define USB_TX_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "main.h"
 #include "usbd_core.h"
 #include "usbd_cdc.h"
 #include "usbd_cdc_if.h"
+#include "Types/UsbComTypes.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -54,6 +54,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+#define USBD_MAX_POWER 0xFAU /* 500 mA */
 /* USER CODE END PV */
 /**
   * @}

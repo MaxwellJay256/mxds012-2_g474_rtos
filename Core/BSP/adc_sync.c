@@ -11,16 +11,11 @@
 #include "adc_sync.h"
 #include "adc.h"
 #include "core_cm4.h"
-#include "stm32g4xx_hal_adc.h"
-#include "stm32g4xx_hal_tim.h"
 #include "tim.h"
-#include "usb_tx.h"
 #include "cmsis_os.h"
 #include "main.h"
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
-
 
 static int16_t adc_result[4][ADC_RESULT_BUFFER_LENGTH];
 // 多模打包缓冲：ADC1+ADC2、ADC3+ADC4 各用 32-bit 打包缓冲
@@ -86,14 +81,9 @@ static TaskHandle_t adc_notify_task = NULL;
 
 // 初始化：预置并启动 DMA，等待外部触发（TIMx_TRGO）
 void ADC_Sync_Init(void) {
-  // 预置 ADC1+ADC2 多模 DMA（主 ADC1）
-  HAL_ADCEx_MultiModeStart_DMA(&hadc1, adc12_packed, ADC_RESULT_BUFFER_LENGTH);
-  // 预置 ADC3+ADC4 多模 DMA（主 ADC3）
-  HAL_ADCEx_MultiModeStart_DMA(&hadc3, adc34_packed, ADC_RESULT_BUFFER_LENGTH);
-  // 预置 ADC5 单独 DMA
-  // HAL_ADC_Start_DMA(&hadc5, (uint32_t *)adc_result[4],
-                    // ADC_RESULT_BUFFER_LENGTH);
-  HAL_ADC_Start_DMA(&hadc5, &adc5_result, 1);
+  HAL_ADCEx_MultiModeStart_DMA(&hadc1, adc12_packed, ADC_RESULT_BUFFER_LENGTH); // 预置 ADC1 + ADC2 多模 DMA（主 ADC1）
+  HAL_ADCEx_MultiModeStart_DMA(&hadc3, adc34_packed, ADC_RESULT_BUFFER_LENGTH); // 预置 ADC3 + ADC4 多模 DMA（主 ADC3）
+  HAL_ADC_Start_DMA(&hadc5, &adc5_result, 1); // 预置 ADC5 单独 DMA（基准电压）
   // 完成后，三路均处于“就绪等待触发”状态
   ADC_Timestamp_Init();
   printf("[adc_sync] ADC Sync initialized.\n");
@@ -191,146 +181,56 @@ void MAX14808_PulseGenerator_DMATransferComplete(DMA_HandleTypeDef *hdma) {
   }
 }
 
-
-// 发送缓冲（单行最大: 5 * (sign + up to 6 digits) + 4 spaces + ";\n" ≈ 5*7 + 6
-// = 41 字节） 为安全与兼容 CDC 64 字节包，使用 128 字节行缓冲
-#define USB_TX_LINE_BUF_SIZE 128
-// 批量发送的帧缓冲尺寸（建议 >= batch_lines * 每行均值），可按需调整
-#define USB_TX_FRAME_BUF_SIZE 512
-
-// 单次总缓冲，为避免一次性内存过大，这里逐行发送
-static uint8_t line_buf[USB_TX_LINE_BUF_SIZE];
-static uint8_t frame_buf[USB_TX_FRAME_BUF_SIZE];
-
-const char sp = ' ';
-const char comma = ',';
-// USBD_OK: 0; USBD_BUSY: 1
-uint8_t USB_ADC_Results_Transmit5(const int16_t *const results[5],
-                               uint16_t length) {
-  if (!results || ADCQueueHandle == NULL)
-    return 1;
-  for (int i = 0; i < 5; ++i) {
-    if (results[i] == NULL)
-      return 1;
-  }
-
-  uint16_t frame_used = 0;
-
-#define APPEND_TO_FRAME(ptr, len)                                              \
-  do {                                                                         \
-    uint16_t need = (uint16_t)(len);                                           \
-    if (need > USB_TX_FRAME_BUF_SIZE)                                          \
-      return 1;                                                                \
-    if ((frame_used + need) > USB_TX_FRAME_BUF_SIZE) {                         \
-      return 1;                                                                \
-    }                                                                          \
-    memcpy(&frame_buf[frame_used], (ptr), need);                               \
-    frame_used = (uint16_t)(frame_used + need);                                \
-  } while (0)
-
-  // 通道逐段输出（仍用文本格式，便于上位机解析）
-  for (int ch = 0; ch < 5; ++ch) {
-    for (uint16_t i = 0; i < length; ++i) {
-      int n = snprintf((char *)line_buf, USB_TX_LINE_BUF_SIZE, "%d",
-                       (int)results[ch][i]);
-      if (n <= 0 || n >= USB_TX_LINE_BUF_SIZE)
-        return 1;
-      APPEND_TO_FRAME(line_buf, (uint16_t)n);
-      if (i + 1 < length) {
-        APPEND_TO_FRAME(&sp, 1);
-      }
-    }
-    APPEND_TO_FRAME(&comma, 1); // 通道段间添加逗号
-  }
-
-  const char newline = '\n';
-  APPEND_TO_FRAME(&newline, 1);
-
-#undef APPEND_TO_FRAME
-
-  uint16_t payload_len = frame_used;
-  uint16_t total_len = (uint16_t)(payload_len + 1 + 1 + 2 + 2); // header+type+len(2)+tail(2)
-
-  ADCUsbPacket *packet = (ADCUsbPacket *)pvPortMalloc(sizeof(ADCUsbPacket));
-  if (packet == NULL)
-    return 1;
-
-  packet->buf = (uint8_t *)pvPortMalloc(total_len);
-  if (packet->buf == NULL) {
-    vPortFree(packet);
-    return 1;
-  }
-  packet->len = total_len;
-
-  uint8_t *p = packet->buf;
-  p[0] = USB_PKT_HEADER_HIGH;
-  p[1] = USB_PKT_TYPE_ADC;
-  p[2] = (uint8_t)(payload_len & 0xFF);      // lenL
-  p[3] = (uint8_t)((payload_len >> 8) & 0xFF); // lenH
-  memcpy(&p[4], frame_buf, payload_len);
-  p[4 + payload_len] = USB_PKT_TAIL_HIGH;
-  p[5 + payload_len] = USB_PKT_TAIL_LOW;
-
-  ADCUsbPacket *to_send = packet;
-  osStatus_t qres = osMessageQueuePut(ADCQueueHandle, &to_send, 0, 0);
-  if (qres != osOK) {
-    vPortFree(packet->buf);
-    vPortFree(packet);
-    return 1;
-  }
-
-  return 0;
-}
-
-
 /**
- * @brief 以二进制格式（大端序 / 网络字节序）打包 ADC 数据，发送至队列
- * 
- * @param results 
- * @param length 
+ * @brief 以二进制载荷格式组织 ADC 数据，发送 UsbFrame* 到 UsbTxQueue
+ *
+ * @param results 4 路通道数据指针（ch0..ch3）
+ * @param length 每路样本数
  * @return uint8_t 0: Success, 1: Failure (e.g., memory allocation or queue error)
  */
 uint8_t USB_ADC_Transmit_Bin(const int16_t *const results[4], uint16_t length)
 {
   const uint16_t payload_len = 4 * length * sizeof(int16_t);
-  // printf("[adc_sync] payload len: %u\n", payload_len);
-  const uint16_t total_len = 2 + 2 + 1 + payload_len + 2 + 2; // 帧头 + 长度 + 类型 + 数据 + 校验 + 帧尾
-  // printf("[adc_sync] total len: %u\n", total_len);
+  UsbFrame *frame = NULL;
+  uint8_t *payload = NULL;
+  uint8_t *buf_ptr = NULL;
 
-  ADCUsbPacket *packet = (ADCUsbPacket *)pvPortMalloc(sizeof(ADCUsbPacket));
-  packet->len = total_len;
-  packet->buf = (uint8_t *)pvPortMalloc(total_len);
-  uint8_t *buf_ptr = packet->buf;
+  if (results == NULL || UsbTxQueueHandle == NULL) {
+    return 1;
+  }
 
-  // 1. 填充帧头
-  *buf_ptr++ = USB_PKT_HEADER_HIGH; *buf_ptr++ = USB_PKT_HEADER_LOW;
-  // 2. 长度和类型
-  *buf_ptr++ = (uint8_t)((payload_len >> 8) & 0xFF);  // 高字节
-  *buf_ptr++ = (uint8_t)(payload_len & 0xFF);         // 低字节
-  *buf_ptr++ = USB_PKT_TYPE_ADC;
-  // 3. 填充 4 通道 ADC 数据
+  for (uint8_t ch = 0; ch < 4; ++ch) {
+    if (results[ch] == NULL) {
+      return 1;
+    }
+  }
+
+  frame = (UsbFrame *)pvPortMalloc(sizeof(UsbFrame));
+  if (frame == NULL) {
+    return 1;
+  }
+
+  payload = (uint8_t *)pvPortMalloc(payload_len);
+  if (payload == NULL) {
+    vPortFree(frame);
+    return 1;
+  }
+
+  buf_ptr = payload;
   for (uint8_t ch = 0; ch < 4; ++ch) {
     memcpy(buf_ptr, results[ch], length * sizeof(int16_t));
     buf_ptr += length * sizeof(int16_t);
   }
-  // 4. 计算并填充校验位
-  //*/ 法 1：简单的 XOR 校验（不含帧头和帧尾）
-  uint16_t checksum = 0;
-  for (uint16_t i = 2; i < 4 + payload_len; ++i) {
-    checksum ^= packet->buf[i];
-  }
-  *buf_ptr++ = (uint8_t)((checksum >> 8) & 0xFF);     // 高字节
-  *buf_ptr++ = (uint8_t)(checksum & 0xFF);            // 低字节
-  //*/
-  // 5. 填充帧尾
-  *buf_ptr++ = USB_PKT_TAIL_HIGH; *buf_ptr++ = USB_PKT_TAIL_LOW;
 
-  // 发送至队列
-  ADCUsbPacket *to_send = packet;
-  osStatus_t qres = osMessageQueuePut(ADCQueueHandle, &to_send, 0, 0);
+  frame->type = USB_PKT_TYPE_ADC;
+  frame->payload_len = payload_len;
+  frame->payload = payload;
+
+  UsbFrame *to_send = frame;
+  osStatus_t qres = osMessageQueuePut(UsbTxQueueHandle, &to_send, 0, 0);
   if (qres != osOK) {
-    vPortFree(packet->buf);
-    vPortFree(packet);
+    vPortFree(payload);
+    vPortFree(frame);
     return 1;
   } else {
     return 0;

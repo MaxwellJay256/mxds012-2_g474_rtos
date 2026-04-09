@@ -53,7 +53,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/BSP/lm51551.c
     Core/BSP/max14808.c
     Core/BSP/ssd1306.c
-    Core/BSP/usb_tx.c
+    Core/BSP/usb_com.c
 
     Core/App/Tasks/ADCTask.c
     Core/App/Tasks/HVMonitorTask.c
