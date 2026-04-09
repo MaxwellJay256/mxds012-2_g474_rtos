@@ -19,10 +19,16 @@ void StartSysMonitorTask(void *argument) {
 
   SystemState currentState = SystemState_Stop;
   for (;;) {
-    SysControlMessage *message;
-    osMessageQueueGet(sysControlQueueHandle, &message, 0, osWaitForever);
+    SysControlMessage *message = NULL;
+    if (osMessageQueueGet(sysControlQueueHandle, &message, 0, osWaitForever) != osOK) {
+      continue;
+    }
+    if (message == NULL) {
+      continue;
+    }
 
     if (message->state == currentState) {
+      vPortFree(message);
       continue;
     }
 
@@ -34,8 +40,8 @@ void StartSysMonitorTask(void *argument) {
       // LED_SetColor(GREEN);
     } else {
       osEventFlagsClear(sysEventGroupHandle, SYS_EVENT_RUNNING_BIT);
-      HV_Disable();
-      printf("[SysMonitorTask] System Stopped. High Voltage Disabled.\n");
+      // HV_Disable();
+      // printf("[SysMonitorTask] System Stopped. High Voltage Disabled.\n");
       // LED_SetColor(RED);
     }
     vPortFree(message);
