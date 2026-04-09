@@ -57,6 +57,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 
     Core/App/Tasks/ADCTask.c
     Core/App/Tasks/HVMonitorTask.c
+    Core/App/Tasks/INA231Task.c
     Core/App/Tasks/KeyTask.c
     Core/App/Tasks/LEDTask.c
     Core/App/Tasks/OLEDTask.c
