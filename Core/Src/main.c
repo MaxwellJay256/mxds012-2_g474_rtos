@@ -118,7 +118,7 @@ int main(void)
   MX_ADC4_Init();
   MX_ADC5_Init();
   MX_I2C1_Init();
-  MX_I2C3_SMBUS_Init();
+  MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
   // 初始化 ADC
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
@@ -129,7 +129,7 @@ int main(void)
   
   HAL_Delay(20); // 单片机启动比 OLED 上电快, 需要延迟等待一下
   // OLED_Init();
-  printf("Welcome to MXDS012-2, system initialized.\n");
+  printf("Welcome to MXDS012-2.\n");
   /* USER CODE END 2 */
 
   /* Init scheduler */
