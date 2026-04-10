@@ -2,8 +2,8 @@
  * @file INA231Task.c
  * @author Maxwell Jay (@MaxwellJay256)
  * @brief 
- * @version 0.1
- * @date 2026-03-23
+ * @version 0.2
+ * @date 2026-04-10
  * 
  * @copyright Copyright (c) 2026
  * 
@@ -13,11 +13,65 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "ina231.h"
-#include "Types/SystemTypes.h"
-#include <stdio.h>
-#include "led.h"
+#include "Types/UsbComTypes.h"
 
-#define INA231_TASK_PERIOD_MS 1000
+#define INA231_TASK_PERIOD_MS 2000
+
+static uint8_t INA231_USB_TransmitPower(uint32_t bus_mv, int32_t current_ma, uint32_t power_mw)
+{
+	UsbFrame *frame;
+	uint8_t *payload;
+	UsbFrame *to_send;
+
+	if (UsbTxQueueHandle == NULL) {
+		return 1U;
+	}
+
+	if (bus_mv > 0xFFFFU) {
+		bus_mv = 0xFFFFU;
+	}
+
+	if (current_ma > INT16_MAX) {
+		current_ma = INT16_MAX;
+	} else if (current_ma < INT16_MIN) {
+		current_ma = INT16_MIN;
+	}
+
+	if (power_mw > 0xFFFFU) {
+		power_mw = 0xFFFFU;
+	}
+
+	frame = (UsbFrame *)pvPortMalloc(sizeof(UsbFrame));
+	if (frame == NULL) {
+		return 1U;
+	}
+
+	payload = (uint8_t *)pvPortMalloc(6U);
+	if (payload == NULL) {
+		vPortFree(frame);
+		return 1U;
+	}
+
+	payload[0] = (uint8_t)(bus_mv & 0xFFU);
+	payload[1] = (uint8_t)((bus_mv >> 8) & 0xFFU);
+	payload[2] = (uint8_t)((uint16_t)current_ma & 0xFFU);
+	payload[3] = (uint8_t)(((uint16_t)current_ma >> 8) & 0xFFU);
+	payload[4] = (uint8_t)(power_mw & 0xFFU);
+	payload[5] = (uint8_t)((power_mw >> 8) & 0xFFU);
+
+	frame->type = USB_PKT_TYPE_POWER;
+	frame->payload_len = 6U;
+	frame->payload = payload;
+
+	to_send = frame;
+	if (osMessageQueuePut(UsbTxQueueHandle, &to_send, 0, 0) != osOK) {
+		vPortFree(payload);
+		vPortFree(frame);
+		return 1U;
+	}
+
+	return 0U;
+}
 
 void StartINA231Task(void *argument)
 {
@@ -33,33 +87,14 @@ void StartINA231Task(void *argument)
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
 		const uint16_t raw_bus = INA231_ReadBusVoltageRegister();
-		const int16_t raw_shunt = INA231_ReadShuntVoltageRegister();
 		const int16_t raw_current = INA231_ReadCurrentRegister();
 		const uint16_t raw_power = INA231_ReadPowerRegister();
 
-		/* Bus: 1.25mV/bit, Shunt: 2.5uV/bit, Current: 1mA/bit, Power: 25mW/bit */
+		/* Bus: 1.25mV/bit, Current: 1mA/bit, Power: 10mW/bit */
 		const uint32_t bus_mv = ((uint32_t)raw_bus * 125U) / 100U;
-		const int32_t shunt_uv = ((int32_t)raw_shunt * 25) / 10;
-		const int32_t shunt_uv_abs = (shunt_uv < 0) ? -shunt_uv : shunt_uv;
 		const int32_t current_ma = (int32_t)(raw_current * 4) / 10;
 		const uint32_t power_mw = (uint32_t)raw_power * 10U;
 
-		printf("[INA231] Vbus=%lu.%03lu V, Vshunt=%c%ld.%03ld mV, I=%ld mA, P=%lu mW\n",
-					 (unsigned long)(bus_mv / 1000U),
-					 (unsigned long)(bus_mv % 1000U),
-					 (shunt_uv < 0) ? '-' : '+',
-					 (long)(shunt_uv_abs / 1000),
-					 (long)(shunt_uv_abs % 1000),
-					 (long)current_ma,
-					 (unsigned long)power_mw);
-    // const float bus_v = INA231_GetBusVoltage_V();
-		// const float shunt_mv = INA231_GetShuntVoltage_mV();
-		// const float current_ma = INA231_GetCurrent_mA();
-		// const float power_mw = INA231_GetPower_mW();
-    // printf("[INA231] Vbus=%.3f V, Vshunt=%.3f mV, I=%.3f mA, P=%.3f mW\n",
-		// 			 bus_v,
-		// 			 shunt_mv,
-		// 			 current_ma,pyinstaller --noconfirm --clean --windowed --onedir --name MXDS012-Host main.py --collect-all qfluentwidgets --collect-all pyqtgraph --collect-submodules PyQt5 --hidden-import serial.tools.list_ports
-		// 			 power_mw);
+		INA231_USB_TransmitPower(bus_mv, current_ma, power_mw);
 	}
 }
