@@ -3,6 +3,7 @@
 #include "event_groups.h"
 #include "main.h"
 #include "max14808.h"
+#include "sys_config.h"
 #include "task.h"
 
 void StartUltrasoundServiceTask(void *argument) {
@@ -12,10 +13,21 @@ void StartUltrasoundServiceTask(void *argument) {
   MAX14808_PulseGenerator_Init(&htim2, &htim5, &hdma_tim2_up);
 
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xFrequency = pdMS_TO_TICKS(50); // 50 ms周期
   EventBits_t sysEventbits;
 
   for (;;) {
+    uint8_t scan_freq_hz = sysConfig.scan_frequency_hz;
+    if (scan_freq_hz < CONFIG_SCAN_FREQ_MIN_HZ || scan_freq_hz > CONFIG_SCAN_FREQ_MAX_HZ) {
+      scan_freq_hz = CONFIG_SCAN_FREQ_MIN_HZ;
+    }
+
+    // 向上取整，避免实际周期快于目标频率
+    uint16_t period_ms = (uint16_t)((1000U + scan_freq_hz - 1U) / scan_freq_hz);
+    TickType_t xFrequency = pdMS_TO_TICKS(period_ms);
+    if (xFrequency == 0U) {
+      xFrequency = 1U;
+    }
+
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
     if (sysEventGroupHandle != NULL) {

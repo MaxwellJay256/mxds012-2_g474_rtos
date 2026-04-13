@@ -17,17 +17,23 @@
 #include <stdint.h>
 #include <stdio.h>
 
+// #define ENABLE_ADC_SYNC_DEBUG
+
+#ifdef ENABLE_ADC_SYNC_DEBUG
+#define ADC_SYNC_LOG(...) printf(__VA_ARGS__)
+#else
+#define ADC_SYNC_LOG(...)
+#endif
+
 static int16_t adc_result[4][ADC_RESULT_BUFFER_LENGTH];
-// 多模打包缓冲：ADC1+ADC2、ADC3+ADC4 各用 32-bit 打包缓冲
+// 多模打包缓冲：ADC1 + ADC2、ADC3 + ADC4 各用 32-bit 打包缓冲
 static uint32_t adc12_packed[ADC_RESULT_BUFFER_LENGTH];
 static uint32_t adc34_packed[ADC_RESULT_BUFFER_LENGTH];
 static uint32_t adc5_result;
+static uint16_t current_sample_depth = CONFIG_SAMPLE_DEPTH_MIN;
 volatile uint8_t adc_data_ready = 0;
 static TIM_HandleTypeDef *tim_sample = &htim3;
-// static ADC_HandleTypeDef *adcs[4] = {&hadc1, &hadc2, &hadc3, &hadc4};
-// // 不再使用（多模触发重构） ADC1 - PA0 - CH1; ADC2 - PA6 - CH2; ADC3 - PB1 -
-// CH3; ADC4 - PB15 - CH4; ADC5 - PA8 - VREF; 时间戳（单位：us，来自
-// HAL_GetTick） 使用微秒时间戳（DWT cycle counter -> microseconds）
+
 static volatile uint64_t ts_pulse_dma_end = 0; // DMA 传输完成时间戳
 static volatile uint64_t ts_adc_start = 0;     // ADC 启动时间戳
 static volatile uint64_t ts_adc_conv_end = 0;  // ADC 转换完成时间戳
@@ -35,7 +41,23 @@ static volatile uint64_t ts_adc_conv_end = 0;  // ADC 转换完成时间戳
 static uint32_t dwt_cycles_per_us = 0;
 static uint8_t dwt_ready = 0; // 0: not ready; 1: enabled and counting
 
-// 初始化 DWT CYCCNT，用于微秒级时间戳；在 system 初始化后调用一次
+static uint16_t ADC_GetConfiguredSampleDepth(SysConfig *config)
+{
+  uint16_t depth = config->sample_depth;
+
+  if (depth < CONFIG_SAMPLE_DEPTH_MIN) {
+    depth = CONFIG_SAMPLE_DEPTH_MIN;
+  } else if (depth > CONFIG_SAMPLE_DEPTH_MAX) {
+    depth = CONFIG_SAMPLE_DEPTH_MAX;
+  }
+
+  return depth;
+}
+
+/**
+ * @brief 初始化 DWT CYCCNT，用于微秒级时间戳；在 system 初始化后调用一次
+ * @retval None
+ */
 void ADC_Timestamp_Init(void) {
   // 确保跟踪和 DWT 被启用
   if ((CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) == 0) {
@@ -81,12 +103,27 @@ static TaskHandle_t adc_notify_task = NULL;
 
 // 初始化：预置并启动 DMA，等待外部触发（TIMx_TRGO）
 void ADC_Sync_Init(void) {
-  HAL_ADCEx_MultiModeStart_DMA(&hadc1, adc12_packed, ADC_RESULT_BUFFER_LENGTH); // 预置 ADC1 + ADC2 多模 DMA（主 ADC1）
-  HAL_ADCEx_MultiModeStart_DMA(&hadc3, adc34_packed, ADC_RESULT_BUFFER_LENGTH); // 预置 ADC3 + ADC4 多模 DMA（主 ADC3）
-  HAL_ADC_Start_DMA(&hadc5, &adc5_result, 1); // 预置 ADC5 单独 DMA（基准电压）
-  // 完成后，三路均处于“就绪等待触发”状态
+  current_sample_depth = ADC_GetConfiguredSampleDepth(&sysConfig);
+  #ifdef ENABLE_ADC_SYNC_DEBUG
+    HAL_StatusTypeDef st12 = HAL_OK;
+    HAL_StatusTypeDef st34 = HAL_OK;
+    HAL_StatusTypeDef st5 = HAL_OK;
+
+    st12 = HAL_ADCEx_MultiModeStart_DMA(&hadc1, adc12_packed, current_sample_depth);
+    st34 = HAL_ADCEx_MultiModeStart_DMA(&hadc3, adc34_packed, current_sample_depth);
+    st5 = HAL_ADC_Start_DMA(&hadc5, &adc5_result, 1);
+  #else
+    HAL_ADCEx_MultiModeStart_DMA(&hadc1, adc12_packed, current_sample_depth); // 预置 ADC1 + ADC2 多模 DMA（主 ADC1）
+    HAL_ADCEx_MultiModeStart_DMA(&hadc3, adc34_packed, current_sample_depth); // 预置 ADC3 + ADC4 多模 DMA（主 ADC3）
+    HAL_ADC_Start_DMA(&hadc5, &adc5_result, 1); // 预置 ADC5 单独 DMA（基准电压）
+  #endif // ENABLE_ADC_SYNC_DEBUG
+
   ADC_Timestamp_Init();
-  printf("[adc_sync] ADC Sync initialized.\n");
+  ADC_SYNC_LOG("[adc_sync] init depth=%u st12=%d st34=%d st5=%d\n",
+               (unsigned)current_sample_depth,
+               (int)st12,
+               (int)st34,
+               (int)st5);
 }
 
 // 启动采样定时器，周期性产生 TRGO（CubeMX 已配置 TIMx TRGO=Update）
@@ -98,7 +135,6 @@ void ADC_Sync_Start(void)
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
-  //*/
   // 根据完成的 ADC 标记对应完成标志
   if (hadc == &hadc1) {
     adc12_done = 1;
@@ -128,16 +164,27 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
       portYIELD_FROM_ISR(xHigherPriorityTaskWoken); // 切换任务
     }
   }
-  //*/
 }
 
 void ADC_Sync_TransmitResultsIfFull(void) {
+  #ifdef ENABLE_ADC_SYNC_DEBUG
+    static uint32_t frame_seq = 0U;
+  #endif // ENABLE_ADC_SYNC_DEBUG
+
   if (adc_data_ready) {
+    #ifdef ENABLE_ADC_SYNC_DEBUG
+      uint8_t tx_res = 0U;
+      HAL_StatusTypeDef st12 = HAL_OK;
+      HAL_StatusTypeDef st34 = HAL_OK;
+      HAL_StatusTypeDef st5 = HAL_OK;
+    #endif // ENABLE_ADC_SYNC_DEBUG
+    const uint16_t sample_depth = current_sample_depth;
+
     // 清标志，处理数据
     adc_data_ready = 0;
 
     // 拆包 packed buffers -> adc_result[0..3], 并减去基准电压 adc5_result
-    for (uint16_t i = 0; i < ADC_RESULT_BUFFER_LENGTH; ++i) {
+    for (uint16_t i = 0; i < sample_depth; ++i) {
       adc_result[0][i] = (int16_t)(adc12_packed[i] & 0xFFFF) - (int16_t)(adc5_result & 0xFFFF);
       adc_result[1][i] = (int16_t)((adc12_packed[i] >> 16) & 0xFFFF) - (int16_t)(adc5_result & 0xFFFF);
       adc_result[2][i] = (int16_t)(adc34_packed[i] & 0xFFFF) - (int16_t)(adc5_result & 0xFFFF);
@@ -145,15 +192,41 @@ void ADC_Sync_TransmitResultsIfFull(void) {
     }
 
     const int16_t *chans[4] = {adc_result[0], adc_result[1], adc_result[2], adc_result[3]};
-    // 批量发送：例如每16行拼接一次
-    // 将时间戳与间隔包含在 USB 帧内发送
-    // USB_ADC_Results_Transmit5(chans, ADC_RESULT_BUFFER_LENGTH);
-    USB_ADC_Transmit_Bin(chans, ADC_RESULT_BUFFER_LENGTH);
+
+    #ifdef ENABLE_ADC_SYNC_DEBUG
+      tx_res = USB_ADC_Transmit_Bin(chans, sample_depth);
+      frame_seq++;
+      ADC_SYNC_LOG("[adc_sync] frame=%lu depth=%u tx=%u q=%lu t_us=%llu\n",
+                  (unsigned long)frame_seq,
+                  (unsigned)sample_depth,
+                  (unsigned)tx_res,
+                  (unsigned long)osMessageQueueGetCount(UsbTxQueueHandle),
+                  (unsigned long long)(ts_adc_conv_end - ts_adc_start));
+    #else
+      (void)USB_ADC_Transmit_Bin(chans, sample_depth);
+    #endif // ENABLE_ADC_SYNC_DEBUG
+
+    current_sample_depth = ADC_GetConfiguredSampleDepth(&sysConfig);
 
     // 重新启动 DMA 以准备下一轮采样
-    HAL_ADCEx_MultiModeStart_DMA(&hadc1, adc12_packed, ADC_RESULT_BUFFER_LENGTH);
-    HAL_ADCEx_MultiModeStart_DMA(&hadc3, adc34_packed, ADC_RESULT_BUFFER_LENGTH);
-    HAL_ADC_Start_DMA(&hadc5, &adc5_result, 1);
+    #ifdef ENABLE_ADC_SYNC_DEBUG
+      st12 = HAL_ADCEx_MultiModeStart_DMA(&hadc1, adc12_packed, current_sample_depth);
+      st34 = HAL_ADCEx_MultiModeStart_DMA(&hadc3, adc34_packed, current_sample_depth);
+      st5 = HAL_ADC_Start_DMA(&hadc5, &adc5_result, 1);
+      if (st12 != HAL_OK || st34 != HAL_OK || st5 != HAL_OK) {
+        ADC_SYNC_LOG("[adc_sync] DMA restart fail depth=%u st12=%d st34=%d st5=%d\n",
+                    (unsigned)current_sample_depth,
+                    (int)st12,
+                    (int)st34,
+                    (int)st5);
+      }
+    #else
+      HAL_ADCEx_MultiModeStart_DMA(&hadc1, adc12_packed, current_sample_depth);
+      HAL_ADCEx_MultiModeStart_DMA(&hadc3, adc34_packed, current_sample_depth);
+      HAL_ADC_Start_DMA(&hadc5, &adc5_result, 1);
+    #endif // ENABLE_ADC_SYNC_DEBUG
+  } else {
+    ADC_SYNC_LOG("[adc_sync] TransmitResults called but adc_data_ready=0\n");
   }
 }
 
@@ -196,22 +269,28 @@ uint8_t USB_ADC_Transmit_Bin(const int16_t *const results[4], uint16_t length)
   uint8_t *buf_ptr = NULL;
 
   if (results == NULL || UsbTxQueueHandle == NULL) {
+    ADC_SYNC_LOG("[adc_sync] USB_ADC_Transmit_Bin invalid args results=%p queue=%p\n", results, UsbTxQueueHandle);
     return 1;
   }
 
   for (uint8_t ch = 0; ch < 4; ++ch) {
     if (results[ch] == NULL) {
+      ADC_SYNC_LOG("[adc_sync] USB_ADC_Transmit_Bin NULL channel ch=%u\n", (unsigned)ch);
       return 1;
     }
   }
 
   frame = (UsbFrame *)pvPortMalloc(sizeof(UsbFrame));
   if (frame == NULL) {
+    ADC_SYNC_LOG("[adc_sync] pvPortMalloc frame failed heap=%lu\n", (unsigned long)xPortGetFreeHeapSize());
     return 1;
   }
 
   payload = (uint8_t *)pvPortMalloc(payload_len);
   if (payload == NULL) {
+    ADC_SYNC_LOG("[adc_sync] pvPortMalloc payload failed len=%u heap=%lu\n",
+                 (unsigned)payload_len,
+                 (unsigned long)xPortGetFreeHeapSize());
     vPortFree(frame);
     return 1;
   }
@@ -229,6 +308,10 @@ uint8_t USB_ADC_Transmit_Bin(const int16_t *const results[4], uint16_t length)
   UsbFrame *to_send = frame;
   osStatus_t qres = osMessageQueuePut(UsbTxQueueHandle, &to_send, 0, 0);
   if (qres != osOK) {
+    ADC_SYNC_LOG("[adc_sync] UsbTxQueue put failed qres=%d qcnt=%lu qspace=%lu\n",
+                 (int)qres,
+                 (unsigned long)osMessageQueueGetCount(UsbTxQueueHandle),
+                 (unsigned long)osMessageQueueGetSpace(UsbTxQueueHandle));
     vPortFree(payload);
     vPortFree(frame);
     return 1;
