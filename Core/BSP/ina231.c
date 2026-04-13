@@ -28,7 +28,7 @@
 #define INA231_CFG_MODE_MASK      0x7U
 
 #define INA231_DEFAULT_CONFIG     0x0527U /* AVG=16, VBUSCT=1.1ms, VSHCT=1.1ms, MODE=continuous shunt+bus */
-#define INA231_DEFAULT_CALIB      0x0280U /* Rshunt=20mOhm, Current_LSB=0.4mA/bit */
+#define INA231_DEFAULT_CALIB      0x001AU /* Rshunt=500mOhm, Current_LSB=0.4mA/bit -> 0.00512/(0.0004*0.5)=25.6 */
 
 static HAL_StatusTypeDef INA231_WriteReg16(uint8_t reg, uint16_t value)
 {

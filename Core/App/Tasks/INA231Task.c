@@ -19,6 +19,7 @@
 
 static uint8_t INA231_USB_TransmitPower(uint32_t bus_mv, int32_t current_ma, uint32_t power_mw)
 {
+	const uint16_t payload_len = 6U;
 	UsbFrame *frame;
 	uint8_t *payload;
 	UsbFrame *to_send;
@@ -46,21 +47,21 @@ static uint8_t INA231_USB_TransmitPower(uint32_t bus_mv, int32_t current_ma, uin
 		return 1U;
 	}
 
-	payload = (uint8_t *)pvPortMalloc(6U);
+	payload = (uint8_t *)pvPortMalloc(payload_len);
 	if (payload == NULL) {
 		vPortFree(frame);
 		return 1U;
 	}
 
-	payload[0] = (uint8_t)(bus_mv & 0xFFU);
-	payload[1] = (uint8_t)((bus_mv >> 8) & 0xFFU);
-	payload[2] = (uint8_t)((uint16_t)current_ma & 0xFFU);
-	payload[3] = (uint8_t)(((uint16_t)current_ma >> 8) & 0xFFU);
-	payload[4] = (uint8_t)(power_mw & 0xFFU);
-	payload[5] = (uint8_t)((power_mw >> 8) & 0xFFU);
+	payload[0] = (uint8_t)(bus_mv & 0xFFU); // 总线电压低 8 位
+	payload[1] = (uint8_t)((bus_mv >> 8) & 0xFFU); // 总线电压高 8 位
+	payload[2] = (uint8_t)((uint16_t)current_ma & 0xFFU); // 电流低 8 位
+	payload[3] = (uint8_t)(((uint16_t)current_ma >> 8) & 0xFFU); // 电流高 8 位
+	payload[4] = (uint8_t)(power_mw & 0xFFU); // 功率低 8 位
+	payload[5] = (uint8_t)((power_mw >> 8) & 0xFFU); // 功率高 8 位
 
 	frame->type = USB_PKT_TYPE_POWER;
-	frame->payload_len = 6U;
+	frame->payload_len = payload_len;
 	frame->payload = payload;
 
 	to_send = frame;
