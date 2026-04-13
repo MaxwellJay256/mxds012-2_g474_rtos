@@ -46,13 +46,14 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     Core/BSP/adc_sync.c
-    Core/BSP/font.c
+    Core/BSP/sys_config.c
+    # Core/BSP/font.c
     Core/BSP/ina231.c
     Core/BSP/key.c
     Core/BSP/led.c
     Core/BSP/lm51551.c
     Core/BSP/max14808.c
-    Core/BSP/ssd1306.c
+    # Core/BSP/ssd1306.c
     Core/BSP/usb_com.c
 
     Core/App/Tasks/ADCTask.c
@@ -60,7 +61,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/App/Tasks/INA231Task.c
     Core/App/Tasks/KeyTask.c
     Core/App/Tasks/LEDTask.c
-    Core/App/Tasks/OLEDTask.c
+    # Core/App/Tasks/OLEDTask.c
     Core/App/Tasks/SysMonitorTask.c
     Core/App/Tasks/USBRXTask.c
     Core/App/Tasks/USBTXTask.c

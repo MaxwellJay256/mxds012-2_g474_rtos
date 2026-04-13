@@ -32,6 +32,8 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "cmsis_os2.h"
+#include "Types/UsbComTypes.h"
+#include "sys_config.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -48,6 +50,7 @@ extern osMessageQueueId_t UsbTxQueueHandle;
 extern osMutexId_t usbTxMutexHandle;
 extern osSemaphoreId_t USBTXCpltSemHandle;
 extern osEventFlagsId_t sysEventGroupHandle;
+extern SysConfig sysConfig;
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

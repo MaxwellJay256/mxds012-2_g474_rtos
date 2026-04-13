@@ -20,14 +20,11 @@
 /* 上行数据包类型 */
 #define USB_PKT_TYPE_ADC 0x01 // ADC 数据包类型
 #define USB_PKT_TYPE_POWER 0x02 // 电源数据包类型
-#define USB_PKT_TYPE_NOTIFY_SCAN_FREQ 0x04 // 通知上位机当前扫描频率（Hz）
-#define USB_PKT_TYPE_NOTIFY_SAMPLE_DEPTH 0x05 // 通知上位机当前采样深度（点数）
+#define USB_PKT_TYPE_NOTIFY_CONFIG 0x04 // 通知上位机当前配置（扫描频率、采样深度）
 
 /* 下行数据包类型 */
-#define USB_PKT_TYPE_SET_SCAN_FREQ 0x10 // 设置扫描频率
-#define USB_PKT_TYPE_GET_SCAN_FREQ 0x11 // 获取扫描频率
-#define USB_PKT_TYPE_SET_SAMPLE_DEPTH 0x12 // 设置采样深度
-#define USB_PKT_TYPE_GET_SAMPLE_DEPTH 0x13 // 获取采样深度
+#define USB_PKT_TYPE_SET_CONFIG 0x10 // 设置系统参数（扫描频率、采样深度等）
+#define USB_PKT_TYPE_ACQ_CONFIG 0x11 // 请求当前系统参数
 
 // 完整帧格式：AA55 | lenL lenH | type | payload... | checksumL checksumH | 0D0A
 // 队列约定：生产者入队 UsbFrame*；USBTXTask 负责打包发送并释放 frame->payload 与 frame 本体。

@@ -161,7 +161,7 @@ const osEventFlagsAttr_t sysEventGroup_attributes = {
 /* USER CODE END FunctionPrototypes */
 
 void StartSysMonitorTask(void *argument);
-extern void StartOLEDTask(void *argument);
+void StartOLEDTask(void *argument);
 extern void StartLEDTask(void *argument);
 extern void StartUltrasoundServiceTask(void *argument);
 extern void StartKeyTask(void *argument);
@@ -281,6 +281,24 @@ __weak void StartSysMonitorTask(void *argument)
     osDelay(1);
   }
   /* USER CODE END StartSysMonitorTask */
+}
+
+/* USER CODE BEGIN Header_StartOLEDTask */
+/**
+* @brief Function implementing the OLEDTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartOLEDTask */
+__weak void StartOLEDTask(void *argument)
+{
+  /* USER CODE BEGIN StartOLEDTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartOLEDTask */
 }
 
 /* USER CODE BEGIN Header_StartINA231Task */
